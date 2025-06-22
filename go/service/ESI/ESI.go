@@ -12,23 +12,24 @@ import (
 	"github.com/gregjones/httpcache"
 	httpcacheredis "github.com/gregjones/httpcache/redis"
 	"github.com/pkg/errors"
+	"golang.org/x/oauth2"
 )
 
 type ESI struct {
-	esi    *goesi.APIClient
-	sso    *goesi.SSOAuthenticator
+	ESI    *goesi.APIClient
+	SSO    *goesi.SSOAuthenticator
 	scopes []string
 }
 
-var e *ESI
+var E *ESI
 
 func InitESI(conn redis.Conn, clientID, clientSecret, callbackURL string, scopes []string) {
 	transport := httpcache.NewTransport(httpcacheredis.NewWithClient(conn))
 	transport.Transport = &http.Transport{Proxy: http.ProxyFromEnvironment}
 	client := &http.Client{Transport: transport}
-	e = &ESI{
-		esi:    goesi.NewAPIClient(client, "My App, contact someone@nowhere"),
-		sso:    goesi.NewSSOAuthenticatorV2(client, clientID, clientSecret, callbackURL, scopes),
+	E = &ESI{
+		ESI:    goesi.NewAPIClient(client, "My App, contact 570727732@qq.com"),
+		SSO:    goesi.NewSSOAuthenticatorV2(client, clientID, clientSecret, callbackURL, scopes),
 		scopes: scopes,
 	}
 }
@@ -46,17 +47,17 @@ func EveSSO(c *gin.Context) (string, error) {
 		return "", err
 	}
 	// Generate the SSO URL with the state string
-	url := e.sso.AuthorizeURL(state, true, e.scopes)
+	url := E.SSO.AuthorizeURL(state, true, E.scopes)
 	// Send the user to the URL
 	return url, nil
 }
 
-func EveSSOCallback(c *gin.Context) error {
+func EveSSOCallback(c *gin.Context) (*oauth2.Token, error) {
 	s := sessions.Default(c)
 	// Get the state from the session
 	state := c.Query("state")
 	if state != "" && s.Get("state") != state {
-		return gin.Error{
+		return nil, gin.Error{
 			Err:  http.ErrNoCookie,
 			Type: gin.ErrorTypePublic,
 		}
@@ -64,38 +65,35 @@ func EveSSOCallback(c *gin.Context) error {
 	// Get the code from the query parameters
 	code := c.Query("code")
 	if code == "" {
-		return gin.Error{
+		return nil, gin.Error{
 			Err:  http.ErrNoCookie,
 			Type: gin.ErrorTypePublic,
 		}
 	}
 
-	token, err := e.sso.TokenExchange(code)
+	token, err := E.SSO.TokenExchange(code)
 	if err != nil {
-		return errors.Wrap(err, "token exchange error")
+		return nil, errors.Wrap(err, "token exchange error")
 	}
 
 	// Obtain a token source (automaticlly pulls refresh as needed)
-	tokSrc := e.sso.TokenSource(token)
+	tokSrc := E.SSO.TokenSource(token)
 
 	// Verify the client (returns clientID)
-	v, err := e.sso.Verify(tokSrc)
+	_, err = E.SSO.Verify(tokSrc)
 	if err != nil {
-		return errors.Wrap(err, "token verify error")
+		return nil, errors.Wrap(err, "token verify error")
 	}
 
 	token, err = tokSrc.Token()
 	if err != nil {
-		return errors.Wrap(err, "token source error getting new token")
+		return nil, errors.Wrap(err, "token source error getting new token")
 	}
-	// Save token.
-	s.Set("token", *token)
 
 	// Save the verification structure on the session for quick access.
-	s.Set("character", v)
 	err = s.Save()
 	if err != nil {
-		return errors.Wrap(err, "unable to save session")
+		return nil, errors.Wrap(err, "unable to save session")
 	}
-	return nil
+	return token, nil
 }

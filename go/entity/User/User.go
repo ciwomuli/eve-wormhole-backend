@@ -8,5 +8,6 @@ func (User) TableName() string {
 
 type User struct {
 	gorm.Model
-	Name string
+	Name     string        `gorm:"type:varchar(200)"`
+	Accounts []UserAccount `gorm:"foreignKey:UserID;references:ID"`
 }
