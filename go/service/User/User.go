@@ -88,7 +88,7 @@ func Callback(c *gin.Context) (string, error) {
 			if err := s.Save(); err != nil {
 				return "/login", err
 			}
-			return "/home", nil
+			return "/dashboard", nil
 		} else if err != nil {
 			return "/login", err
 		} else {
@@ -98,7 +98,7 @@ func Callback(c *gin.Context) (string, error) {
 			if err := s.Save(); err != nil {
 				return "/login", err
 			}
-			return "/home", nil
+			return "/dashboard", nil
 		}
 	}
 }
