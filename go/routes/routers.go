@@ -1,6 +1,7 @@
 package routes
 
 import (
+	"eve-wormhole-backend/go/controller/Auth"
 	"eve-wormhole-backend/go/controller/ESI"
 	"eve-wormhole-backend/go/service/middleware"
 
@@ -31,13 +32,9 @@ func SetRouter() *gin.Engine {
 		esiGroup.GET("/auth", ESI.Auth)
 		esiGroup.GET("/callback", ESI.Callback)
 	}
-	r.GET("/home", func(c *gin.Context) {
-		s := sessions.Default(c)
-		if s.Get("login") != true {
-			c.JSON(401, gin.H{"error": "Unauthorized"})
-			return
-		}
-		c.JSON(200, gin.H{"message": "Welcome to ESI Home!", "id": s.Get("userId")})
-	})
+	authGroup := r.Group("auth")
+	{
+		authGroup.GET("/submit-code", Auth.SubmitCode)
+	}
 	return r
 }

@@ -2,8 +2,8 @@ package ESI
 
 import (
 	"eve-wormhole-backend/go/service/ESI"
-	"eve-wormhole-backend/go/service/User"
 	"eve-wormhole-backend/go/utils"
+	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
@@ -23,11 +23,7 @@ func Auth(c *gin.Context) {
 
 func Callback(c *gin.Context) {
 	// Handle the SSO callback
-	url, err := User.Callback(c)
-	if err != nil {
-		logrus.Debug("Error during SSO callback:", err.Error())
-		utils.Fail(c, "Failed to complete SSO login")
-		return
-	}
-	utils.OkWithData(c, "SSO login successful", gin.H{"url": url})
+	c.Redirect(http.StatusFound, "http://127.0.0.1:5777/auth/wait?code="+c.Query("code")+"&state="+c.Query("state"))
+	//c.Redirect(http.StatusFound, "http://baidu.com")
 }
+

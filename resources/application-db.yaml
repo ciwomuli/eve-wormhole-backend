@@ -1,5 +1,5 @@
 url: 127.0.0.1
-userName: eve_corp
-password: 7YPnfKrbGpmdYkZY
+userName: root
+password: root
 dbname: test
 port: 3306

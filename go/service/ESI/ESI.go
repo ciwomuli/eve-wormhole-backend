@@ -3,6 +3,7 @@ package ESI
 import (
 	"crypto/rand"
 	"encoding/base64"
+	"eve-wormhole-backend/go/utils"
 	"net/http"
 
 	"github.com/antihax/goesi"
@@ -12,6 +13,7 @@ import (
 	"github.com/gregjones/httpcache"
 	httpcacheredis "github.com/gregjones/httpcache/redis"
 	"github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
 	"golang.org/x/oauth2"
 )
 
@@ -41,6 +43,7 @@ func EveSSO(c *gin.Context) (string, error) {
 	rand.Read(b)
 	state := base64.URLEncoding.EncodeToString(b)
 	// Save the state on the session
+	logrus.Debugf("Generated state: %s", state)
 	s.Set("state", state)
 	err := s.Save()
 	if err != nil {
@@ -57,23 +60,24 @@ func EveSSOCallback(c *gin.Context) (*oauth2.Token, error) {
 	// Get the state from the session
 	state := c.Query("state")
 	if state != "" && s.Get("state") != state {
-		return nil, gin.Error{
+		logrus.Printf("State mismatch: expected %s, got %s", s.Get("state"), state)
+		return nil, utils.WrapError(gin.Error{
 			Err:  http.ErrNoCookie,
 			Type: gin.ErrorTypePublic,
-		}
+		})
 	}
 	// Get the code from the query parameters
 	code := c.Query("code")
 	if code == "" {
-		return nil, gin.Error{
+		return nil, utils.WrapError(gin.Error{
 			Err:  http.ErrNoCookie,
 			Type: gin.ErrorTypePublic,
-		}
+		})
 	}
 
 	token, err := E.SSO.TokenExchange(code)
 	if err != nil {
-		return nil, errors.Wrap(err, "token exchange error")
+		return nil, utils.WrapError(errors.Wrap(err, "token exchange error"))
 	}
 
 	// Obtain a token source (automaticlly pulls refresh as needed)
@@ -82,18 +86,18 @@ func EveSSOCallback(c *gin.Context) (*oauth2.Token, error) {
 	// Verify the client (returns clientID)
 	_, err = E.SSO.Verify(tokSrc)
 	if err != nil {
-		return nil, errors.Wrap(err, "token verify error")
+		return nil, utils.WrapError(errors.Wrap(err, "token verify error"))
 	}
 
 	token, err = tokSrc.Token()
 	if err != nil {
-		return nil, errors.Wrap(err, "token source error getting new token")
+		return nil, utils.WrapError(errors.Wrap(err, "token source error getting new token"))
 	}
 
 	// Save the verification structure on the session for quick access.
 	err = s.Save()
 	if err != nil {
-		return nil, errors.Wrap(err, "unable to save session")
+		return nil, utils.WrapError(errors.Wrap(err, "unable to save session"))
 	}
 	return token, nil
 }

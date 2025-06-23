@@ -8,8 +8,9 @@ import (
 func AuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		skipRoutes := map[string]bool{
-			"/esi/auth":     true, // 示例路由
-			"/esi/callback": true, // 示例路由
+			"/esi/auth":         true, // 示例路由
+			"/esi/callback":     true, // 示例路由
+			"/auth/submit-code": true,
 		}
 
 		// 检查当前请求的路径是否在跳过列表中

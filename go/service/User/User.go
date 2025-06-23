@@ -4,29 +4,32 @@ import (
 	"eve-wormhole-backend/go/dao"
 	entity "eve-wormhole-backend/go/entity/User"
 	"eve-wormhole-backend/go/service/ESI"
+	"eve-wormhole-backend/go/utils"
 
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
 
-func Callback(c *gin.Context) (string, error) {
+// wrapError 包装错误并添加行号信息
+
+func Callback(c *gin.Context) error {
 	s := sessions.Default(c)
 
 	token, err := ESI.EveSSOCallback(c)
 	if err != nil {
 		if s.Get("login") == true {
-			return "/esi", err
+			return utils.WrapError(err)
 		} else {
-			return "/login", err
+			return utils.WrapError(err)
 		}
 	}
 	v, err := ESI.E.SSO.Verify(ESI.E.SSO.TokenSource(token))
 	if err != nil {
 		if s.Get("login") == true {
-			return "/esi", err
+			return utils.WrapError(err)
 		} else {
-			return "/login", err
+			return utils.WrapError(err)
 		}
 	}
 
@@ -44,11 +47,11 @@ func Callback(c *gin.Context) (string, error) {
 			}
 			err := SaveUserAccount(account)
 			if err != nil {
-				return "/esi", err
+				return utils.WrapError(err)
 			}
-			return "/esi", nil
+			return nil
 		} else if err != nil {
-			return "/esi", err
+			return utils.WrapError(err)
 		} else {
 			account.UserID = userId
 			account.CharacterID = v.CharacterID
@@ -58,9 +61,9 @@ func Callback(c *gin.Context) (string, error) {
 			account.Expiry = token.Expiry
 			err := SaveUserAccount(account)
 			if err != nil {
-				return "/esi", err
+				return utils.WrapError(err)
 			}
-			return "/esi", nil
+			return nil
 		}
 	} else {
 		if err == gorm.ErrRecordNotFound {
@@ -69,7 +72,7 @@ func Callback(c *gin.Context) (string, error) {
 			}
 			err := CreateUser(user)
 			if err != nil {
-				return "/login", err
+				return utils.WrapError(err)
 			}
 			account := &entity.UserAccount{
 				UserID:        user.ID,
@@ -81,38 +84,38 @@ func Callback(c *gin.Context) (string, error) {
 			}
 			err = SaveUserAccount(account)
 			if err != nil {
-				return "/login", err
+				return utils.WrapError(err)
 			}
 			s.Set("userId", user.ID)
 			s.Set("login", true)
 			if err := s.Save(); err != nil {
-				return "/login", err
+				return utils.WrapError(err)
 			}
-			return "/dashboard", nil
+			return nil
 		} else if err != nil {
-			return "/login", err
+			return utils.WrapError(err)
 		} else {
 			userId := account.UserID
 			s.Set("userId", userId)
 			s.Set("login", true)
 			if err := s.Save(); err != nil {
-				return "/login", err
+				return utils.WrapError(err)
 			}
-			return "/dashboard", nil
+			return nil
 		}
 	}
 }
 
 func CreateUser(user *entity.User) error {
 	if err := dao.SqlSession.Create(user).Error; err != nil {
-		return err
+		return utils.WrapError(err)
 	}
 	return nil
 }
 
 func SaveUserAccount(account *entity.UserAccount) error {
 	if err := dao.SqlSession.Save(account).Error; err != nil {
-		return err
+		return utils.WrapError(err)
 	}
 	return nil
 }
@@ -120,7 +123,7 @@ func SaveUserAccount(account *entity.UserAccount) error {
 func GetUserAccountByCharacterID(characterID int32) (*entity.UserAccount, error) {
 	var account entity.UserAccount
 	if err := dao.SqlSession.Where("character_id = ?", characterID).First(&account).Error; err != nil {
-		return nil, err
+		return nil, utils.WrapError(err)
 	}
 	return &account, nil
 }
