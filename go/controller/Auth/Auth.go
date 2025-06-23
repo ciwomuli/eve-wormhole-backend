@@ -1,7 +1,7 @@
-package Auth
+package auth
 
 import (
-	"eve-wormhole-backend/go/service/User"
+	"eve-wormhole-backend/go/service/user"
 	"eve-wormhole-backend/go/utils"
 
 	"github.com/gin-gonic/gin"
@@ -9,11 +9,11 @@ import (
 )
 
 func SubmitCode(c *gin.Context) {
-	err := User.Callback(c)
+	data, err := user.Callback(c)
 	if err != nil {
 		logrus.Debug("Error during user callback:", err.Error())
 		utils.Fail(c, "Failed to process user callback")
 		return
 	}
-	utils.Ok(c, "Login successful")
+	utils.OkWithData(c, "User callback processed successfully", data)
 }

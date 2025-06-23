@@ -2,9 +2,9 @@ package main
 
 import (
 	"eve-wormhole-backend/go/dao"
-	entity "eve-wormhole-backend/go/entity/User"
+	"eve-wormhole-backend/go/entity"
 	"eve-wormhole-backend/go/routes"
-	"eve-wormhole-backend/go/service/ESI"
+	"eve-wormhole-backend/go/service/esi"
 
 	"github.com/gomodule/redigo/redis"
 	"github.com/sirupsen/logrus"
@@ -26,7 +26,7 @@ func main() {
 	dao.SqlSession.AutoMigrate(&entity.User{})
 	dao.SqlSession.AutoMigrate(&entity.UserAccount{})
 
-	ESI.InitESI(
+	esi.InitESI(
 		conn,
 		"011bee760fed465eb3ced1b7ca3651e3",
 		"I2yXQ6ia76VGWQin8UDcnoYUo4dAI3JpiAWmqSbo",

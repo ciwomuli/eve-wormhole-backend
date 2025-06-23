@@ -1,13 +1,13 @@
-package ESI
+package esi
 
 import (
 	"crypto/rand"
 	"encoding/base64"
 	"eve-wormhole-backend/go/utils"
 	"net/http"
+	"time"
 
 	"github.com/antihax/goesi"
-	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"github.com/gomodule/redigo/redis"
 	"github.com/gregjones/httpcache"
@@ -28,7 +28,11 @@ var E *ESI
 func InitESI(conn redis.Conn, clientID, clientSecret, callbackURL string, scopes []string) {
 	transport := httpcache.NewTransport(httpcacheredis.NewWithClient(conn))
 	transport.Transport = &http.Transport{Proxy: http.ProxyFromEnvironment}
-	client := &http.Client{Transport: transport}
+	//client := &http.Client{Transport: transport}
+
+	client := &http.Client{
+		Timeout: 10 * time.Second,
+	}
 	E = &ESI{
 		ESI:    goesi.NewAPIClient(client, "My App, contact 570727732@qq.com"),
 		SSO:    goesi.NewSSOAuthenticatorV2(client, clientID, clientSecret, callbackURL, scopes),
@@ -36,38 +40,47 @@ func InitESI(conn redis.Conn, clientID, clientSecret, callbackURL string, scopes
 	}
 }
 
-func EveSSO(c *gin.Context) (string, error) {
-	s := sessions.Default(c)
+func EveSSO(c *gin.Context) (map[string]any, error) {
+	userId, exist := c.Get("userId")
+	if !exist {
+		userId = (uint)(0)
+	}
 	// Generate a random state string
 	b := make([]byte, 16)
 	rand.Read(b)
 	state := base64.URLEncoding.EncodeToString(b)
 	// Save the state on the session
 	logrus.Debugf("Generated state: %s", state)
-	s.Set("state", state)
-	err := s.Save()
-	if err != nil {
-		return "", err
-	}
+	logrus.Debugf("User ID: %v", userId)
+	tokenString := utils.GenerateJWT(userId.(uint), state)
 	// Generate the SSO URL with the state string
 	url := E.SSO.AuthorizeURL(state, true, E.scopes)
 	// Send the user to the URL
-	return url, nil
+	return gin.H{"url": url, "token": tokenString}, nil
+}
+
+type CallbackData struct {
+	State string `json:"state"`
+	Code  string `json:"code"`
 }
 
 func EveSSOCallback(c *gin.Context) (*oauth2.Token, error) {
-	s := sessions.Default(c)
 	// Get the state from the session
-	state := c.Query("state")
-	if state != "" && s.Get("state") != state {
-		logrus.Printf("State mismatch: expected %s, got %s", s.Get("state"), state)
+	var callbackData CallbackData
+	if err := c.ShouldBindJSON(&callbackData); err != nil {
+		logrus.Debugf("Failed to bind JSON: %v", err)
+		return nil, utils.WrapError(errors.Wrap(err, "invalid JSON"))
+	}
+	state := callbackData.State
+	code := callbackData.Code
+	state_token, exist := c.Get("state")
+	if !exist || state == "" || state_token != state {
+		logrus.Printf("State mismatch: expected %s, got %s", state_token, state)
 		return nil, utils.WrapError(gin.Error{
 			Err:  http.ErrNoCookie,
 			Type: gin.ErrorTypePublic,
 		})
 	}
-	// Get the code from the query parameters
-	code := c.Query("code")
 	if code == "" {
 		return nil, utils.WrapError(gin.Error{
 			Err:  http.ErrNoCookie,
@@ -92,12 +105,6 @@ func EveSSOCallback(c *gin.Context) (*oauth2.Token, error) {
 	token, err = tokSrc.Token()
 	if err != nil {
 		return nil, utils.WrapError(errors.Wrap(err, "token source error getting new token"))
-	}
-
-	// Save the verification structure on the session for quick access.
-	err = s.Save()
-	if err != nil {
-		return nil, utils.WrapError(errors.Wrap(err, "unable to save session"))
 	}
 	return token, nil
 }

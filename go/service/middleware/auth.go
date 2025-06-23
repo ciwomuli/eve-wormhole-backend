@@ -1,7 +1,10 @@
 package middleware
 
 import (
-	"github.com/gin-contrib/sessions"
+	"eve-wormhole-backend/go/service/user"
+	"eve-wormhole-backend/go/utils"
+	"net/http"
+
 	"github.com/gin-gonic/gin"
 )
 
@@ -11,19 +14,22 @@ func AuthMiddleware() gin.HandlerFunc {
 			"/esi/auth":         true, // 示例路由
 			"/esi/callback":     true, // 示例路由
 			"/auth/submit-code": true,
+			"/wormhole/ws":      true,
 		}
 
-		// 检查当前请求的路径是否在跳过列表中
-		if skipRoutes[c.Request.URL.Path] {
-			c.Next() // 跳过权限检测，继续处理
+		err := utils.DecodeJWT(c, c.Request.Header.Get("Authorization"))
+		if err != nil {
+			if skipRoutes[c.Request.URL.Path] {
+				c.Next()
+				return
+			}
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"code": "1", "message": "Unauthorized"})
 			return
 		}
-
-		s := sessions.Default(c)
-
-		if s.Get("login") != true {
-			c.JSON(401, gin.H{"error": "Unauthorized"})
-			c.Abort() // 停止后续处理
+		userId, _ := c.Get("userId")
+		err = user.UpdateUserActiveTimebyID(userId.(uint))
+		if err != nil {
+			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"code": "2", "message": "Internal Server Error"})
 			return
 		}
 		c.Next()
