@@ -7,6 +7,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v4"
+	"github.com/sirupsen/logrus"
 )
 
 func GenerateJWT(userId uint, state string) string {
@@ -44,15 +45,16 @@ func DecodeJWT(c *gin.Context, authHeader string) error {
 	// 将 Claims 存入上下文
 	if claims, ok := token.Claims.(jwt.MapClaims); ok {
 		c.Set("state", claims["state"])
+		logrus.Debugf("JWT claims: %v", claims)
 		if userIdFloat, ok := claims["userId"].(float64); ok {
 			userId := uint(userIdFloat) // 将 float64 转换为 uint
 			c.Set("userId", userId)
 			if userId == 0 {
-				return errors.New("invalid userId in token")
+				return errors.New("invalid userId in token 0")
 			}
 		} else {
 			c.Set("userId", uint(0)) // 如果转换失败，设置默认值
-			return errors.New("invalid userId in token")
+			return errors.New("invalid userId in token 1")
 		}
 	}
 	return nil

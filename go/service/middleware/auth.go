@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/sirupsen/logrus"
 )
 
 func AuthMiddleware() gin.HandlerFunc {
@@ -23,6 +24,7 @@ func AuthMiddleware() gin.HandlerFunc {
 				c.Next()
 				return
 			}
+			logrus.Debug("JWT decode error:", err.Error())
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"code": "1", "message": "Unauthorized"})
 			return
 		}
