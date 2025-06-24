@@ -52,3 +52,41 @@ func HandleWebSocket(c *gin.Context) {
 	wormhole.StartWormholeTicker(c, conn)
 	logrus.Info("WebSocket connection ended")
 }
+
+func AddWormholeConnection(c *gin.Context) {
+	userId, exist := c.Get("userId")
+	if !exist {
+		utils.Fail(c, "User ID not found in context")
+		return
+	}
+	wormholeConnectionData := &wormhole.WormholeConnectionData{}
+	if err := c.ShouldBindJSON(wormholeConnectionData); err != nil {
+		utils.Fail(c, "Invalid JSON format")
+		return
+	}
+	err := wormhole.AddWormholeConnection(userId.(uint), wormholeConnectionData)
+	if err != nil {
+		logrus.Errorf("Failed to add wormhole connection for user %d: %v", userId, err)
+		utils.Fail(c, "Failed to add wormhole connection")
+		return
+	}
+
+	utils.Ok(c, "Wormhole connection added successfully")
+}
+
+func ListWormholeConnectionsUser(c *gin.Context) {
+	userId, exist := c.Get("userId")
+	if !exist {
+		utils.Fail(c, "User ID not found in context")
+		return
+	}
+
+	wormholeConnections, err := wormhole.ListWormholeConnections(c, false)
+	if err != nil {
+		logrus.Errorf("Failed to list wormhole connections for user %d: %v", userId, err)
+		utils.Fail(c, "Failed to list wormhole connections")
+		return
+	}
+
+	utils.OkWithData(c, "List of wormhole connections", wormholeConnections)
+}

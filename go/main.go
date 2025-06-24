@@ -25,6 +25,7 @@ func main() {
 	dao.InitMySql()
 	dao.SqlSession.AutoMigrate(&entity.User{})
 	dao.SqlSession.AutoMigrate(&entity.UserAccount{})
+	dao.SqlSession.AutoMigrate(&entity.WormholeConnection{})
 
 	esi.InitESI(
 		conn,

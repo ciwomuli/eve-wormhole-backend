@@ -29,6 +29,8 @@ func SetRouter() *gin.Engine {
 	wormholeGroup := r.Group("wormhole")
 	{
 		wormholeGroup.GET("/ws", wormhole.HandleWebSocket)
+		wormholeGroup.POST("/add", wormhole.AddWormholeConnection)
+		wormholeGroup.GET("/listuser", wormhole.ListWormholeConnectionsUser)
 	}
 	return r
 }
